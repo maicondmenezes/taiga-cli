@@ -1,18 +1,41 @@
-import os
 import re
-from pathlib import Path
 
 import httpx
 import typer
-from dotenv import load_dotenv
 
 from .api import TaigaAPI
-from .config import get_taiga_api_url, get_taiga_project_id, load_token, save_token
-from .enums import EpicStatus, get_epic_status_id_by_name, get_task_status_id_by_name, get_user_story_status_id_by_name
-from .models import Epic, Initiative, Story, Task
+from .config import (
+    get_taiga_api_url,
+    get_taiga_project_id,
+    load_refresh_token,
+    load_token,
+    save_config_vars,
+    save_refresh_token,
+    save_token,
+)
+from .enums import (
+    get_epic_status_id_by_name,
+    get_task_status_id_by_name,
+    get_user_story_status_id_by_name,
+)
 from .services import TaigaService
 
 app = typer.Typer()
+
+
+# --- CLI Commands ---
+
+
+@app.command()
+def configure():
+    """
+    Configura o Taiga CLI solicitando TAIGA_API_URL e
+    TAIGA_PROJECT_ID e salvando em arquivo de configuração.
+    """
+    api_url = typer.prompt("Informe a URL da API do Taiga (ex: http://localhost:8000/api/v1/)")
+    project_id = typer.prompt("Informe o slug ou ID do projeto Taiga")
+    save_config_vars(api_url, project_id)
+    typer.echo("[OK] Configuração salva em ~/.config/taiga-cli/config.env")
 
 
 @app.command()
@@ -41,20 +64,15 @@ def list_projects():
 
 @app.command()
 def login():
-    """Authenticate with Taiga and save token to config file."""
-    env_path = Path(__file__).parent.parent / ".env"
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path, override=True)
-
+    """Solicita usuário e senha, autentica no Taiga e salva o token de acesso e refresh_token."""
     api_url = get_taiga_api_url()
-    username = os.environ.get("TAIGA_USERNAME")
-    password = os.environ.get("TAIGA_PASSWORD")
-    print(f"[DEBUG] TAIGA_PROJECT_ID: {get_taiga_project_id()}")
-    if not api_url or not username or not password:
-        typer.echo(
-            "TAIGA_API_URL, TAIGA_USERNAME e TAIGA_PASSWORD devem estar definidos como variáveis de ambiente ou no .env local."
-        )
+    if not api_url:
+        typer.echo("TAIGA_API_URL não definido. Execute 'taiga configure' primeiro.")
         raise typer.Exit(1)
+
+    username = typer.prompt("Usuário do Taiga")
+    password = typer.prompt("Senha do Taiga", hide_input=True)
+
     try:
         resp = httpx.post(
             f"{api_url.rstrip('/')}/auth",
@@ -63,11 +81,46 @@ def login():
         )
         resp.raise_for_status()
         data = resp.json()
-        token = data["auth_token"]
+        token = data.get("auth_token")
+        refresh_token = data.get("refresh") or data.get("refresh_token")
         save_token(token)
         typer.echo("[OK] Token salvo em ~/.config/taiga-cli/token")
+        if refresh_token:
+            save_refresh_token(refresh_token)
+            typer.echo("[OK] Refresh token salvo em ~/.config/taiga-cli/refresh_token")
     except Exception as e:
         typer.echo(f"[ERRO] Falha ao autenticar: {e}")
+        raise typer.Exit(1)
+
+
+def ensure_token():
+    """Garante que o token está válido, usando refresh_token se necessário."""
+    token = load_token()
+    if token:
+        return token
+    refresh_token = load_refresh_token()
+    if not refresh_token:
+        typer.echo("Token expirado ou ausente. Faça login novamente.")
+        raise typer.Exit(1)
+    api_url = get_taiga_api_url()
+    try:
+        resp = httpx.post(
+            f"{api_url.rstrip('/')}/auth/refresh",
+            json={"refresh": refresh_token},
+            timeout=30.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        token = data.get("auth_token") or data.get("access")
+        new_refresh = data.get("refresh") or data.get("refresh_token")
+        if token:
+            save_token(token)
+        if new_refresh:
+            save_refresh_token(new_refresh)
+        typer.echo("[OK] Token renovado com sucesso.")
+        return token
+    except Exception as e:
+        typer.echo(f"[ERRO] Falha ao renovar token: {e}")
         raise typer.Exit(1)
 
 
@@ -99,44 +152,12 @@ def hello():
 
 
 @app.command()
-def list_tasks():
-    """List all tasks in the project."""
-    api_url = get_taiga_api_url()
-    token = load_token()
-    project_id = get_taiga_project_id()
-    api = TaigaAPI(api_url, token)
-    service = TaigaService(api)
-    if not project_id:
-        typer.echo("TAIGA_PROJECT_ID not set in .env")
-        raise typer.Exit(1)
-    tasks = service.list_tasks(int(project_id))
-    for t in tasks:
-        typer.echo(f"[{t.id}] {t.subject} | Status: {t.status}")
-
-
-@app.command()
-def list_stories():
-    """List all stories in the project."""
-    api_url = get_taiga_api_url()
-    token = load_token()
-    project_id = get_taiga_project_id()
-    api = TaigaAPI(api_url, token)
-    service = TaigaService(api)
-    if not project_id:
-        typer.echo("TAIGA_PROJECT_ID not set in .env")
-        raise typer.Exit(1)
-    stories = service.list_stories(int(project_id))
-    for s in stories:
-        typer.echo(f"[{s.id}] {s.subject} | Status: {s.status}")
-
-
-@app.command()
 def list_epics():
     """List all epics in the project."""
     token = load_token()
     api_url = get_taiga_api_url()
     project_id = get_taiga_project_id()
-    print(f"[DEBUG] TAIGA_TOKEN usado: {token}")
+    # ...
     api = TaigaAPI(api_url, token)
     service = TaigaService(api)
     if not project_id:
@@ -166,12 +187,9 @@ def list_initiatives():
 @app.command()
 def update_task(task_id: str, status: str = typer.Option(None), subject: str = typer.Option(None)):
     """Update a task by ID."""
-    token = load_token()
+    token = ensure_token()
     api_url = get_taiga_api_url()
-    print(f"[DEBUG] TAIGA_TOKEN usado: {token}")
-    if not token:
-        typer.echo("[ERRO] Token não encontrado. Faça login novamente com 'taiga login'.")
-        raise typer.Exit(1)
+    # ...
     api = TaigaAPI(api_url, token)
     data = {}
     if status:
@@ -191,15 +209,14 @@ def update_task(task_id: str, status: str = typer.Option(None), subject: str = t
 
 
 @app.command()
-def update_story(story_id: str, status: str = typer.Option(None), subject: str = typer.Option(None)):
+def update_story(
+    story_id: str, status: str = typer.Option(None), subject: str = typer.Option(None)
+):
     """Update a story by ID."""
-    token = load_token()
+    token = ensure_token()
     api_url = get_taiga_api_url()
     project_id = get_taiga_project_id()
-    print(f"[DEBUG] TAIGA_TOKEN usado: {token}")
-    if not token:
-        typer.echo("[ERRO] Token não encontrado. Faça login novamente com 'taiga login'.")
-        raise typer.Exit(1)
+    # ...
     if not project_id:
         typer.echo("TAIGA_PROJECT_ID não definido.")
         raise typer.Exit(1)
@@ -233,11 +250,11 @@ def update_story(story_id: str, status: str = typer.Option(None), subject: str =
             raise typer.Exit(1)
     if subject:
         data["subject"] = subject
-    print(f"[DEBUG] PATCH userstories/{real_id} payload: {data}")
+
     try:
-        resp = api.client.patch(f"{api_url.rstrip('/')}/userstories/{real_id}", headers=api._headers(), json=data)
-        print(f"[DEBUG] Response status: {resp.status_code}")
-        print(f"[DEBUG] Response text: {resp.text}")
+        resp = api.client.patch(
+            f"{api_url.rstrip('/')}/userstories/{real_id}", headers=api._headers(), json=data
+        )
         resp.raise_for_status()
         typer.echo(f"[OK] Story {real_id} updated.")
     except httpx.HTTPStatusError as e:
@@ -255,7 +272,10 @@ def update_epic(
     assigned_to: int = typer.Option(None, help="ID do usuário responsável"),
     tags: str = typer.Option(None, help="Tags separadas por vírgula"),
 ):
-    """Atualiza um épico pela tag (ex: EP-02). Permite atualizar status, título, descrição, responsável e tags."""
+    """
+    Atualiza um épico pela tag (ex: EP-02).
+    Permite atualizar status, título, descrição, responsável e tags.
+    """
     project_id = get_taiga_project_id()
     if not project_id:
         typer.echo("TAIGA_PROJECT_ID not set in .env")
@@ -267,11 +287,12 @@ def update_epic(
 
     if not (status or status_id or subject or description or assigned_to or tags):
         typer.echo(
-            "[ERRO] Informe pelo menos um campo para atualizar: --status, --status-id, --subject, --description, --assigned-to, --tags."
+            "[ERRO] Informe pelo menos um campo para atualizar: --status, --status-id,",
+            "--subject, --description, --assigned-to, --tags.",
         )
         raise typer.Exit(1)
 
-    token = load_token()
+    token = ensure_token()
     api_url = get_taiga_api_url()
     api = TaigaAPI(api_url, token)
     service = TaigaService(api)
@@ -303,7 +324,7 @@ def update_epic(
         tags_list = [t.strip() for t in tags.split(",") if t.strip()]
         payload["tags"] = tags_list
 
-    print(f"[DEBUG] TAIGA_TOKEN usado: {token}")
+    # ...
     if not token:
         typer.echo("[ERRO] Token não encontrado. Faça login novamente com 'taiga login'.")
         raise typer.Exit(1)
@@ -316,11 +337,13 @@ def update_epic(
 
 
 @app.command()
-def update_initiative(initiative_id: str, name: str = typer.Option(None), order: int = typer.Option(None)):
+def update_initiative(
+    initiative_id: str, name: str = typer.Option(None), order: int = typer.Option(None)
+):
     """Update an initiative (swimlane) by ID."""
-    token = load_token()
+    token = ensure_token()
     api_url = get_taiga_api_url()
-    print(f"[DEBUG] TAIGA_TOKEN usado: {token}")
+    # ...
     if not token:
         typer.echo("[ERRO] Token não encontrado. Faça login novamente com 'taiga login'.")
         raise typer.Exit(1)

@@ -1,1 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.pyo
+*.pyd
+*.pdb
+*.sqlite3
+*.db
+*.log
+*.pot
+*.mo
+*.coverage
+.coverage.*
+.cache
+.tox/
+.nox/
+.pytest_cache/
+
+# Environments
 .env
+.env.*
+.venv/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Test output
+htmlcov/
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pyre
+.pyre/
+
+# pytype
+typecheck/
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Coverage reports
+htmlcov/
+.coverage
+
+# Local config
+config.env
+
+# Taiga CLI config
+~/.config/taiga-cli/
