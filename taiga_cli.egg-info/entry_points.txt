@@ -1,0 +1,2 @@
+[console_scripts]
+taiga = taiga_cli.main:app

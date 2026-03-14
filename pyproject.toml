@@ -1,0 +1,17 @@
+[project]
+
+name = "taiga-cli"
+version = "0.1.0"
+description = "CLI modular para gestão do Taiga Hermes Conrad"
+authors = [
+    { name = "Equipe Hermes Conrad" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "typer>=0.9.0"
+]
+
+[project.scripts]
+taiga = "taiga_cli.main:app"
