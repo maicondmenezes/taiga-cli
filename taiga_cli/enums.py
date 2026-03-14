@@ -25,7 +25,9 @@ def get_user_story_status_id_by_name(name: str) -> int:
     status = _USER_STORY_STATUS_NAME_MAP.get(key)
     if status:
         return status.value
-    raise ValueError(f"Status '{name}' não encontrado. Válidos: {', '.join(_USER_STORY_STATUS_NAME_MAP.keys())}")
+    raise ValueError(
+        f"Status '{name}' não encontrado. Válidos: {', '.join(_USER_STORY_STATUS_NAME_MAP.keys())}"
+    )
 
 
 # Enum estático de status de task para o projeto Hermes Conrad
@@ -52,13 +54,13 @@ def get_task_status_id_by_name(name: str) -> int:
     status = _TASK_STATUS_NAME_MAP.get(key)
     if status:
         return status.value
-    raise ValueError(f"Status '{name}' não encontrado. Válidos: {', '.join(_TASK_STATUS_NAME_MAP.keys())}")
+    raise ValueError(
+        f"Status '{name}' não encontrado. Válidos: {', '.join(_TASK_STATUS_NAME_MAP.keys())}"
+    )
 
 
 # Enum estático de status de épico para o projeto Hermes Conrad
 # Gerado a partir da API /api/v1/epic-statuses?project=3
-
-from enum import Enum
 
 
 class EpicStatus(Enum):
@@ -84,4 +86,6 @@ def get_epic_status_id_by_name(name: str) -> int:
     status = _EPIC_STATUS_NAME_MAP.get(key)
     if status:
         return status.value
-    raise ValueError(f"Status '{name}' não encontrado. Válidos: {', '.join(_EPIC_STATUS_NAME_MAP.keys())}")
+    raise ValueError(
+        f"Status '{name}' não encontrado. Válidos: {', '.join(_EPIC_STATUS_NAME_MAP.keys())}"
+    )

@@ -1,7 +1,6 @@
+
 import os
 from pathlib import Path
-
-from dotenv import load_dotenv
 
 CONFIG_DIR = os.path.expanduser("~/.config/taiga-cli")
 TOKEN_PATH = os.path.join(CONFIG_DIR, "token")
@@ -22,15 +21,18 @@ def load_refresh_token() -> str | None:
     return None
 
 
-def load_env():
-    """Carrega variáveis de ambiente do .env local, se existir."""
-    env_path = Path(__file__).parent.parent / ".env"
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path, override=True)
 
-    # Carrega variáveis do arquivo de configuração persistente
+def _read_config_env() -> dict:
+    """Lê o arquivo config.env e retorna um dicionário com as variáveis."""
+    config = {}
     if os.path.exists(CONFIG_ENV_PATH):
-        load_dotenv(dotenv_path=CONFIG_ENV_PATH, override=True)
+        with open(CONFIG_ENV_PATH) as f:
+            for line in f:
+                if line.strip() and not line.strip().startswith("#"):
+                    if "=" in line:
+                        k, v = line.strip().split("=", 1)
+                        config[k.strip()] = v.strip()
+    return config
 
 
 def save_config_vars(api_url: str, project_id: str):
@@ -53,11 +55,13 @@ def load_token() -> str | None:
     return None
 
 
+
 def get_taiga_api_url() -> str:
-    load_env()
-    return os.environ.get("TAIGA_API_URL", "http://taiga-kanban/api/v1")
+    config = _read_config_env()
+    return config.get("TAIGA_API_URL", "http://taiga-kanban/api/v1")
+
 
 
 def get_taiga_project_id() -> str | None:
-    load_env()
-    return os.environ.get("TAIGA_PROJECT_ID")
+    config = _read_config_env()
+    return config.get("TAIGA_PROJECT_ID")

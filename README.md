@@ -8,12 +8,50 @@ Modular CLI for Taiga project management (Hermes Conrad)
 - python-dotenv for env management
 - OOP, modular, extensible
 
-## Usage
+
+## Instalação
+
+### Usando pipx (recomendado)
+
+```bash
+pipx install .
+# ou, para instalar direto do repositório:
+# pipx install git+https://github.com/maicondmenezes/taiga-cli.git
+```
+
+### Usando pip
+
+```bash
+python -m pip install .
+# ou, para modo desenvolvimento:
+python -m pip install -e .
+```
+
+### Usando uv
 
 ```bash
 uv venv
 uv pip install -e .
-uv taiga --help
+```
+
+## Configuração Inicial
+
+Após instalar, execute:
+
+```bash
+taiga configure
+# Ou, se instalado em modo dev:
+uv run taiga configure
+```
+Preencha a URL da API e o slug/ID do projeto conforme solicitado. As configurações ficam em ~/.config/taiga-cli/config.env.
+
+## Uso
+
+```bash
+taiga --help
+taiga list-projects
+taiga login
+# ... outros comandos disponíveis
 ```
 
 ## Structure

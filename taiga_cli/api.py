@@ -19,7 +19,9 @@ class TaigaAPI:
         return headers
 
     def get(self, endpoint: str, params: dict = None) -> Any:
-        resp = self.client.get(f"{self.base_url}/{endpoint}", headers=self._headers(), params=params)
+        resp = self.client.get(
+            f"{self.base_url}/{endpoint}", headers=self._headers(), params=params
+        )
         resp.raise_for_status()
         return resp.json()
 

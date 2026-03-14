@@ -1,5 +1,3 @@
-import typer
-
 from .main import app
 
 # CLI entrypoint for Typer

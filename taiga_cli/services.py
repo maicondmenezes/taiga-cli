@@ -57,7 +57,12 @@ class TaigaService:
     def list_epics(self, project_id: int) -> List[Epic]:
         data = self.api.get("epics", {"project": project_id})
         return [
-            Epic(id=str(e["id"]), subject=e["subject"], status=e["status"], tags=[t[0] for t in e.get("tags", [])])
+            Epic(
+                id=str(e["id"]),
+                subject=e["subject"],
+                status=e["status"],
+                tags=[t[0] for t in e.get("tags", [])],
+            )
             for e in data
         ]
 
