@@ -189,9 +189,29 @@ def update_task(task_id: str, status: str = typer.Option(None), subject: str = t
     """Update a task by ID."""
     token = ensure_token()
     api_url = get_taiga_api_url()
-    # ...
+    project_id = get_taiga_project_id()
+    if not project_id:
+        typer.echo("TAIGA_PROJECT_ID não definido.")
+        raise typer.Exit(1)
+
+    # Permitir busca por tag TK-XXX
+    real_id = task_id
+    version = None
+    if re.fullmatch(r"TK-\d+", task_id, re.IGNORECASE):
+        api = TaigaAPI(api_url, token)
+        service = TaigaService(api)
+        try:
+            task = service.get_task_by_tag_full(task_id, int(project_id))
+        except ValueError as e:
+            typer.echo(f"[ERRO] {e}")
+            raise typer.Exit(1)
+        real_id = task["id"]
+        version = task.get("version")
+
     api = TaigaAPI(api_url, token)
     data = {}
+    if version is not None:
+        data["version"] = version
     if status:
         try:
             data["status"] = get_task_status_id_by_name(status)
@@ -201,8 +221,8 @@ def update_task(task_id: str, status: str = typer.Option(None), subject: str = t
     if subject:
         data["subject"] = subject
     try:
-        api.patch(f"tasks/{task_id}", data)
-        typer.echo(f"[OK] Task {task_id} updated.")
+        api.patch(f"tasks/{real_id}", data)
+        typer.echo(f"[OK] Task {real_id} updated.")
     except httpx.HTTPStatusError as e:
         # Tenta extrair mensagem de erro detalhada
         try:
