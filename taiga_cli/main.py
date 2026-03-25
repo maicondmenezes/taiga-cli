@@ -204,7 +204,16 @@ def update_task(task_id: str, status: str = typer.Option(None), subject: str = t
         api.patch(f"tasks/{task_id}", data)
         typer.echo(f"[OK] Task {task_id} updated.")
     except httpx.HTTPStatusError as e:
-        typer.echo(f"[ERRO] Falha ao atualizar task: {e.response.text}")
+        # Tenta extrair mensagem de erro detalhada
+        try:
+            error_json = e.response.json()
+            error_msg = error_json.get("_error_message")
+            if error_msg:
+                typer.echo(f"[ERRO] Falha ao atualizar task: {error_msg}")
+            else:
+                typer.echo(f"[ERRO] Falha ao atualizar task: {e.response.text or e.response.reason_phrase or 'Erro desconhecido.'}")
+        except Exception:
+            typer.echo(f"[ERRO] Falha ao atualizar task: {e.response.text or e.response.reason_phrase or 'Erro desconhecido.'}")
         raise typer.Exit(1)
 
 
