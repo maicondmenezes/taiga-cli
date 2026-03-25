@@ -43,6 +43,19 @@ class TaigaService:
                 return epic.id
         raise ValueError(f"Nenhum épico com a tag '{tag}' encontrado no projeto {project_id}.")
 
+    def get_task_by_tag_full(self, tag: str, project_id: int) -> dict:
+        """
+        Busca o dict completo da primeira task do projeto que contenha a tag (case insensitive) na lista de tags.
+        Retorna o dict da task (com id, version, etc).
+        """
+        tag_norm = tag.lower()
+        data = self.api.get("tasks", {"project": project_id})
+        for t in data:
+            tags = [tg[0].lower() for tg in t.get("tags", []) if tg and tg[0]]
+            if tag_norm in tags:
+                return t
+        raise ValueError(f"Nenhuma task com a tag '{tag}' encontrada no projeto {project_id}.")
+
     def __init__(self, api: TaigaAPI):
         self.api = api
 
