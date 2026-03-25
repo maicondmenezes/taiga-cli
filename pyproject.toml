@@ -1,7 +1,7 @@
 [project]
 
 name = "taigactl"
-version = "0.1.0"
+version = "0.1.1"
 description = "CLI modular para gestão do Taiga Hermes Conrad"
 authors = [
     { name = "Equipe Hermes Conrad" }
